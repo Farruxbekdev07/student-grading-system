@@ -1,0 +1,10 @@
+{
+  "/(dashboard)/student/lessons/page": "app/(dashboard)/student/lessons/page.js",
+  "/(dashboard)/teacher/course/[courseId]/lesson/[lessonId]/grades/page": "app/(dashboard)/teacher/course/[courseId]/lesson/[lessonId]/grades/page.js",
+  "/(dashboard)/admin/courses/page": "app/(dashboard)/admin/courses/page.js",
+  "/(dashboard)/teacher/course/[courseId]/lessons/page": "app/(dashboard)/teacher/course/[courseId]/lessons/page.js",
+  "/(dashboard)/student/grades/page": "app/(dashboard)/student/grades/page.js",
+  "/(dashboard)/admin/enrollments/page": "app/(dashboard)/admin/enrollments/page.js",
+  "/(dashboard)/student/courses/page": "app/(dashboard)/student/courses/page.js",
+  "/(dashboard)/student/course/[courseId]/lessons/page": "app/(dashboard)/student/course/[courseId]/lessons/page.js"
+}

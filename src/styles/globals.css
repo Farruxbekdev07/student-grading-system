@@ -1,0 +1,16 @@
+/* styles/globals.css */
+/* Tailwind base layers — preflight disabled in tailwind.config.ts
+   so MUI's CssBaseline handles resets instead.                    */
+@tailwind components;
+@tailwind utilities;
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Custom scrollbar (optional — remove if not needed) */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #94A3B8; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #64748B; }

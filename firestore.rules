@@ -1,0 +1,130 @@
+// firestore.rules
+// Deploy with: firebase deploy --only firestore:rules
+// -------------------------------------------------
+// v2: admin role management (users collection)
+// v3: course management (courses collection)
+// v4: enrollment system (enrollments collection)
+// v5: grading system (grades collection)
+// v6: user self-edit (name only)
+// v7: lesson-based grading
+//   - lessons collection: teacher creates, all course members read
+//   - grades: doc ID is now `${studentId}_${lessonId}`
+//     write rule checks: courses/{courseId}.teacherId == uid
+//     (courseId is embedded in the grade document)
+// -------------------------------------------------
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper: check if the requesting user is an admin
+    function isAdmin() {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
+    }
+
+    match /users/{userId} {
+      // Own doc OR admin can read
+      allow read: if request.auth != null &&
+        (request.auth.uid == userId || isAdmin());
+
+      // Sign-up: user creates their own doc, role MUST be "student"
+      allow create: if request.auth != null &&
+        request.auth.uid == userId &&
+        request.resource.data.role == "student";
+
+      // Self-update (non-role fields only) OR admin (any field including role)
+      allow update: if request.auth != null && (
+        (request.auth.uid == userId &&
+          !("role" in request.resource.data.diff(resource.data).affectedKeys())) ||
+        isAdmin()
+      );
+
+      allow delete: if false;
+    }
+
+    // ── Courses collection ────────────────────────────────────────────────────
+    match /courses/{courseId} {
+      allow read: if request.auth != null && (
+        isAdmin() ||
+        resource.data.teacherId == request.auth.uid
+      );
+      allow create: if isAdmin();
+      allow delete: if isAdmin();
+      allow update: if isAdmin();
+    }
+
+    // ── Enrollments collection ────────────────────────────────────────────────
+    match /enrollments/{enrollmentId} {
+      allow read: if request.auth != null && (
+        isAdmin() ||
+        resource.data.studentId == request.auth.uid ||
+        get(/databases/$(database)/documents/courses/$(resource.data.courseId))
+          .data.teacherId == request.auth.uid
+      );
+      allow create: if isAdmin();
+      allow delete: if isAdmin();
+      allow update: if false;
+    }
+
+    // ── Lessons collection ────────────────────────────────────────────────────
+    // Teacher can create lessons for their own courses.
+    // Students enrolled in the course can read lessons (via courseId check
+    // against enrollments — we use a simpler approach: any authenticated
+    // user can read a lesson if they are the assigned teacher or an admin;
+    // enrolled students are checked client-side via enrollment query).
+    match /lessons/{lessonId} {
+      // Admin or assigned teacher can read all lessons for their courses
+      allow read: if request.auth != null && (
+        isAdmin() ||
+        get(/databases/$(database)/documents/courses/$(resource.data.courseId))
+          .data.teacherId == request.auth.uid ||
+        // Students: allow read if enrolled (checked via existence of enrollment doc)
+        // Simplified: any authenticated user can read lesson metadata
+        // (titles/dates are not sensitive — grades are protected separately)
+        request.auth != null
+      );
+
+      // Teacher can create lessons only for their own course
+      allow create: if request.auth != null &&
+        get(/databases/$(database)/documents/courses/$(request.resource.data.courseId))
+          .data.teacherId == request.auth.uid;
+
+      // Teacher can update/delete their own course's lessons
+      allow update: if request.auth != null &&
+        get(/databases/$(database)/documents/courses/$(resource.data.courseId))
+          .data.teacherId == request.auth.uid;
+
+      allow delete: if request.auth != null && (
+        isAdmin() ||
+        get(/databases/$(database)/documents/courses/$(resource.data.courseId))
+          .data.teacherId == request.auth.uid
+      );
+    }
+
+    // ── Grades collection ─────────────────────────────────────────────────────
+    // v7: Document ID is `${studentId}_${lessonId}`.
+    // courseId is embedded in every grade doc for the course-level get() check.
+    match /grades/{gradeId} {
+      allow read: if request.auth != null && (
+        isAdmin() ||
+        resource.data.studentId == request.auth.uid ||
+        get(/databases/$(database)/documents/courses/$(resource.data.courseId))
+          .data.teacherId == request.auth.uid
+      );
+
+      // Teacher writes grades only for their own courses
+      allow write: if request.auth != null &&
+        get(/databases/$(database)/documents/courses/$(request.resource.data.courseId))
+          .data.teacherId == request.auth.uid;
+
+      allow delete: if isAdmin();
+    }
+
+    // Default: deny everything else
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
